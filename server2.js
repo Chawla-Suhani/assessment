@@ -119,12 +119,11 @@ app.post('/api/login', async (req, res) => {
 
 ////Home page details 
 
-//const jwt = require('jsonwebtoken'); // Importing jwt package
-//const JWT_SECRET = 'supersecretkey123!'; // Your JWT secret key, use dotenv for secure handling
-
+//const jwt = require('jsonwebtoken'); 
+//const JWT_SECRET = 'supersecretkey123!'; 
 app.get('/api/home', async (req, res) => {
   // Extract token from Authorization header
-  const token = req.headers.authorization?.split(' ')[1]; // "Bearer <token>"
+  const token = req.headers.authorization?.split(' ')[1]; // 
 
   if (!token) {
     return res.status(401).json({ error: 'No token provided.' });
@@ -138,7 +137,7 @@ app.get('/api/home', async (req, res) => {
     return res.status(200).json({ message: `Welcome, ${decoded.username}` });
     
   } catch (error) {
-    // If the token is invalid or expired, send a 401 Unauthorized response
+    
     return res.status(401).json({ error: 'Unauthorized. Invalid or expired token.' });
   }
 });
