@@ -5,7 +5,6 @@ import jwt from "jsonwebtoken";
 
 const app = express();
 
-
 const pool = new Pool({
     user : "postgres",
     host : "localhost",
@@ -16,6 +15,8 @@ const pool = new Pool({
 
 
 app.use(express.json());
+
+const JWT_SECRET = 'supersecretkey123!';
 
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
@@ -45,7 +46,6 @@ app.post('/api/register', async (req, res) => {
 
 //**********************************user login************************************//
 
-const JWT_SECRET = 'supersecretkey123!';
 
 
 app.post('/api/login', async (req, res) => {
@@ -59,7 +59,7 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid username or password.' });
       }
   
-      // Check if account is locked
+      
       if (user.lock_until && new Date(user.lock_until) > new Date()) {
         return res.status(403).json({
           error: `Account locked. Try again after ${new Date(user.lock_until).toLocaleString()}`,
@@ -68,13 +68,11 @@ app.post('/api/login', async (req, res) => {
   
       const isPasswordCorrect = await bcrypt.compare(password, user.password);
       if (!isPasswordCorrect) {
-        // Log failed login attempt
         await pool.query(
           'INSERT INTO login_attempts (user_id, attempt_time) VALUES ($1, NOW())',
           [user.identifier]
         );
   
-        // Count failed attempts in last 12 hours
         const attemptsQuery = await pool.query(
           `SELECT COUNT(*) FROM login_attempts 
            WHERE user_id = $1 AND attempt_time > NOW() - INTERVAL '12 HOURS'`,
@@ -83,7 +81,7 @@ app.post('/api/login', async (req, res) => {
         const failedAttempts = parseInt(attemptsQuery.rows[0].count);
   
         if (failedAttempts >= 5) {
-          const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+          const lockUntil = new Date(Date.now() + 24*60*60*1000); 
           await pool.query('UPDATE users SET lock_until = $1 WHERE identifier = $2', [lockUntil, user.identifier]);
           return res.status(403).json({
             error: `Account locked. Try again after ${lockUntil.toLocaleString()}`,
@@ -93,11 +91,9 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid username or password.' });
       }
   
-      // Successful login: reset failed attempts
       await pool.query('DELETE FROM login_attempts WHERE user_id = $1', [user.identifier]);
       await pool.query('UPDATE users SET lock_until = NULL WHERE identifier = $1', [user.identifier]);
   
-      // Generate JWT
       const token = jwt.sign({ id: user.identifier, username: user.username }, JWT_SECRET, {
         expiresIn: '1h',
       });
