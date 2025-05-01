@@ -13,26 +13,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  identifier    Int             @id @default(autoincrement())
-  username      String           @unique 
-  password      String
-  lock_until    DateTime?       @map("lock_untill")
-
+  identifier   Int      @id @default(autoincrement())
+  username     String   @unique
+  password     String
+  lock_until   DateTime?
   loginAttempts LoginAttempt[]
-  
-  @@map("users")
 }
 
 model LoginAttempt {
-  id           Int      @id @default(autoincrement())
-  userId       Int      @map("user_id")
-  attemptTime  DateTime @default(now()) @map("attempt_time")
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  attemptTime DateTime
 
-  user User @relation(fields: [userId], references: [identifier], onDelete: Cascade)
-
-  @@map("login_attempts")
+  user        User     @relation(fields: [userId], references: [identifier])
 }
-
-

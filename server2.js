@@ -7,13 +7,13 @@ const prisma = new PrismaClient();
 
 const app = express();
 
-const pool = new Pool({
-    user : "postgres",
-    host : "localhost",
-    database : "assessment",
-    password : "Nahipata@1",
-    port : 5432,
-})
+// const pool = new Pool({
+//     user : "postgres",
+//     host : "localhost",
+//     database : "assessment",
+//     password : "Nahipata@1",
+//     port : 5432,
+// })
 
 
 app.use(express.json());
@@ -166,12 +166,11 @@ const UTCDate = new Date(ISTDate.toISOString());
     }
   });
 
-
 ////Home page details 
 
 //const jwt = require('jsonwebtoken'); 
 //const JWT_SECRET = 'supersecretkey123!'; 
-
+/*
 app.get('/api/home', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1]; 
 
@@ -190,7 +189,7 @@ app.get('/api/home', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized. Invalid or expired token.' });
   }
 });
-
+*/
 
 //token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwidXNlcm5hbWUiOiJOdXNoa2EgQ2hhd2xhIiwiaWF0IjoxNzQ1OTk1MDI3LCJleHAiOjE3NDU5OTg2Mjd9.C3sF5HPEimzaikpQttOPoaZCugayZgTxJEz6SxcyrLU
 
