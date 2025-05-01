@@ -88,7 +88,7 @@ app.post('/api/login', async (req, res) => {
         where: {
           userId: user.identifier,
           attemptTime: {
-            gte: new Date(new Date().setHours(new Date().getHours() - 12)), // Last 12 hours
+            gte: new Date(Date.now() - 12 * 1000), // Last 12 hours
           },
         },
       });
@@ -96,8 +96,10 @@ app.post('/api/login', async (req, res) => {
       //db mai time utc mai store kar raha hai lekin hume ist mai chaheye
       ///////////
 
+      //In database it's storing Date in UTC but account is getting unlocked after account locked time
+
       if (failedAttempts >= 5) {
-        const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+        const lockUntil = new Date(Date.now() +  60 * 1000); // 24 hours from now
         await prisma.users.update({
           where: { identifier: user.identifier },
           data: { lock_until: lockUntil },
