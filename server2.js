@@ -2,6 +2,8 @@ import express from "express";
 import bcrypt from "bcrypt";
 import {Pool} from "pg"
 import jwt from "jsonwebtoken";
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 const app = express();
 
@@ -22,23 +24,26 @@ app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    if (!username || !password) {
-      return res.status(400).json({ error:'Username and password are required.'});
+    const existingUser = await prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already taken.' });
     }
 
-    const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (userCheck.rows.length > 0) {
-      return res.status(404).json({ error: 'Username already exists.' });
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const newUser = await prisma.user.create({
+      data: {
+        username,
+        password: hashedPassword,
+      },
+    });
 
-    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)',[username, hashedPassword]);
-    res.status(201).json({ message: 'User registered successfully.' });
-
-  } catch (err) {
-    console.error('Registration Error:', err);
+    res.status(201).json({ message: 'User registered successfully.', user: newUser });
+  } catch (error) {
+    console.error('Register Error:', error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
@@ -52,8 +57,11 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
 
     try {
-      const userResult = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-      const user = userResult.rows[0];
+      // const userResult = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+      // const user = userResult.rows[0];
+      const user  = await prisma.User.findUnique({
+        where : { username},
+      });
   
       if (!user) {
         return res.status(401).json({ error: 'Invalid username or password.' });
@@ -68,21 +76,48 @@ app.post('/api/login', async (req, res) => {
   
       const isPasswordCorrect = await bcrypt.compare(password, user.password);
       if (!isPasswordCorrect) {
-        await pool.query(
-          'INSERT INTO login_attempts (user_id, attempt_time) VALUES ($1, NOW())',
-          [user.identifier]
-        );
+        //console.log(new Date().toLocaleString())
+        //let currentTime = new Date().toLocaleString();
+        const ISTOffset = 5.5 * 60 * 60 * 1000; // IST is UTC +5:30
+const ISTDate = new Date(Date.now() + ISTOffset);
+
+// Convert IST to UTC before saving to DB
+const UTCDate = new Date(ISTDate.toISOString());
+        // await pool.query(
+        //   'INSERT INTO login_attempts (user_id, attempt_time) VALUES ($1, NOW())',
+        //   [user.identifier]
+        // );
+        await prisma.loginAttempt.create({
+          data : {
+            userId : user.identifier,
+            attemptTime  : UTCDate ,//yaha changes kia 
+          },
+        });
   
-        const attemptsQuery = await pool.query(
-          `SELECT COUNT(*) FROM login_attempts 
-           WHERE user_id = $1 AND attempt_time > NOW() - INTERVAL '12 HOURS'`,
-          [user.identifier]
-        );
-        const failedAttempts = parseInt(attemptsQuery.rows[0].count);
+        // const attemptsQuery = await pool.query(
+        //   `SELECT COUNT(*) FROM login_attempts 
+        //    WHERE user_id = $1 AND attempt_time > NOW() - INTERVAL '12 HOURS'`,
+        //   [user.identifier]
+        // );
+        // const failedAttempts = parseInt(attemptsQuery.rows[0].count);
+
+        const failedAttempts = await prisma.loginAttempt.count({
+          where: {
+            userId: user.identifier,
+            attemptTime: {
+              gte: new Date(Date.now() -   12 * 1000), // last 12 hours
+            },
+          },
+        });
+        
   
         if (failedAttempts >= 5) {
-          const lockUntil = new Date(Date.now() + 24*60*60*1000); 
-          await pool.query('UPDATE users SET lock_until = $1 WHERE identifier = $2', [lockUntil, user.identifier]);
+          const lockUntil = new Date(Date.now() + 60*1000); 
+          //await pool.query('UPDATE users SET lock_until = $1 WHERE identifier = $2', [lockUntil, user.identifier]);
+          await prisma.user.update({
+            where : { identifier : user.identifier},
+            data : { lock_until : lockUntil},
+          })
           return res.status(403).json({
             error: `Account locked. Try again after ${lockUntil.toLocaleString()}`,
           });
@@ -91,9 +126,28 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid username or password.' });
       }
   
-      await pool.query('DELETE FROM login_attempts WHERE user_id = $1', [user.identifier]);
-      await pool.query('UPDATE users SET lock_until = NULL WHERE identifier = $1', [user.identifier]);
+      //await pool.query('DELETE FROM login_attempts WHERE user_id = $1', [user.identifier]);
+      //await pool.query('UPDATE users SET lock_until = NULL WHERE identifier = $1', [user.identifier]);
+
+      await prisma.loginAttempt.deleteMany({
+        where : { userId : user.identifier},
+      })
+
+      // await prisma.user.update({
+      //   where : { identifier : user.identifier},
+      //   data : { lock_until : null},
+      // });
   
+
+      await prisma.user.update({
+        where: {
+          identifier: user.identifier,
+        },
+        data: {
+          lock_until: null, // NOT "lock_untill"
+        },
+      });
+      
       const token = jwt.sign({ id: user.identifier, username: user.username }, JWT_SECRET, {
         expiresIn: '1h',
       });

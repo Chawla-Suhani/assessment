@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -15,8 +14,25 @@ datasource db {
 }
 
 
-model users {
-  identifier       Int    @id @default(autoincrement())
-  username String @unique
-  password String
+model User {
+  identifier    Int             @id @default(autoincrement())
+  username      String           @unique 
+  password      String
+  lock_until    DateTime?       @map("lock_untill")
+
+  loginAttempts LoginAttempt[]
+  
+  @@map("users")
 }
+
+model LoginAttempt {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  attemptTime  DateTime @default(now()) @map("attempt_time")
+
+  user User @relation(fields: [userId], references: [identifier], onDelete: Cascade)
+
+  @@map("login_attempts")
+}
+
+
