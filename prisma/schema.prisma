@@ -12,19 +12,21 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-model User {
+model Users {
   identifier   Int      @id @default(autoincrement())
   username     String   @unique
   password     String
   lock_until   DateTime?
   loginAttempts LoginAttempt[]
+
+  @@map("users")  // Mapping to the "users" table
 }
 
 model LoginAttempt {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  attemptTime DateTime
+  id        Int    @id @default(autoincrement())
+  userId    Int
+  user      Users  @relation(fields: [userId], references: [identifier])
+  attemptTime DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [identifier])
+  @@map("login_attempts")  // Mapping to the "login_attempts" table
 }
